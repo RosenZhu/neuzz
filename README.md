@@ -33,3 +33,17 @@ Try 10 real-world programs on NEUZZ. Check setup details at programs/[program na
 Feel free to send me email about Neuzz. dongdong at cs.columbia.edu
 
 
+# Instrument target binaries using Dynisnt
+
+1. set enviroment
+```
+    export PATH=$PATH:/path/to/libInstDyninst.so
+```
+
+2. change DYN_ROOT in Makefile to the build dir of your Dynisnt
+
+
+3. instrument targets
+```
+    ./InstDyninst -i /path/to/target -o /path/to/output/binary/name
+```
