@@ -23,6 +23,8 @@
 #include <netinet/in.h>
 #include <time.h>
 
+#include "neuzzconfig.h"
+
 /* Most of code is borrowed directly from AFL fuzzer (https://github.com/mirrorer/afl), credits to Michal Zalewski */
 
 /* Fork server init timeout multiplier: we'll wait the user-selected timeout plus this much for the fork server to spin up. */ 
@@ -50,8 +52,7 @@ int havoc_blk_large = 8192;
  
 #define MEM_BARRIER() \
     asm volatile("" ::: "memory")
-/* Map size for the traced binary. */
-#define MAP_SIZE            2<<18
+
  
 #define R(x) (random() % (x))
 #define likely(_x)   __builtin_expect(!!(_x), 1)
@@ -127,8 +128,8 @@ char virgin_bits[MAP_SIZE];             /* Regions yet untouched by fuzzing */
 static int mut_cnt = 0;                 /* Total mutation counter           */
 char *out_buf, *out_buf1, *out_buf2, *out_buf3;
 size_t len;                             /* Maximum file length for every mutation */
-int loc[10000];                         /* Array to store critical bytes locations*/
-int sign[10000];                        /* Array to store sign of critical bytes  */
+int loc[NEUZZ_MAX_FILE_LENGTH];          /* Array to store critical bytes locations*/
+int sign[NEUZZ_MAX_FILE_LENGTH];         /* Array to store sign of critical bytes  */
 
 /* more fined grined mutation can have better results but slower*/
 //int num_index[23] = {0,2,4,8,16,32,64,128,256,512,1024,1536,2048,2560,3072, 3584,4096,4608,5120, 5632,6144,6656,7103};
@@ -507,7 +508,7 @@ void setup_shm(void) {
 
   memset(virgin_bits, 255, MAP_SIZE);
 
-  shm_id = shmget(IPC_PRIVATE, MAP_SIZE, IPC_CREAT | IPC_EXCL | 0600);
+  shm_id = shmget(IPC_PRIVATE, MAP_SIZE + BBVAL_MAP_SIZE, IPC_CREAT | IPC_EXCL | 0600);
 
   if (shm_id < 0) perror("shmget() failed");
 
@@ -964,7 +965,7 @@ static u8 run_target(int timeout) {
      must prevent any earlier operations from venturing into that
      territory. */
 
-  memset(trace_bits, 0, MAP_SIZE);
+  memset(trace_bits, 0, MAP_SIZE + BBVAL_MAP_SIZE);
   MEM_BARRIER();
 
     int res;
@@ -1813,7 +1814,7 @@ void copy_seeds(char * in_dir, char * out_dir){
         fprintf(stderr,"cannot open directory: %s\n", in_dir);
         return;
     }
-    char src[128], dst[128];
+    char src[256], dst[256];
     while((de = readdir(dp)) != NULL){ 
          if(strcmp(".",de->d_name) == 0 || strcmp("..",de->d_name) == 0)
             continue;
@@ -1981,6 +1982,14 @@ void start_fuzz_test(int f_len){
     /* fuzz */
         fuzz_lop("gradient_info", sock);
     return;
+}
+
+/* get related bytes for each edge */
+void get_related_bytes(){
+  u8 edge2bytes[MAP_SIZE][NEUZZ_MAX_FILE_LENGTH];
+
+  
+
 }
 
 
