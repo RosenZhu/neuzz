@@ -211,16 +211,17 @@ bool AFLCoverage::runOnModule(Module &M) {
                                       IRB.CreateAdd(BitMapIndex, ConstMapSize));
       // Get current BB value and update bbvalue map
       
-      Value *EdgeVal;
+      //Value *EdgeVal;
       bool curZero = false; // flag that indicates the value of current bb is zero
       Instruction* Instterm = dyn_cast<Instruction>(BB.getTerminator());
       if (Instterm){
         
         if(isa<SwitchInst>(Instterm)) {
           SwitchInst* Sw = cast<SwitchInst>(Instterm);
-          IRBuilder<> IRBSW(Sw);
+          
           Value *SwCond = Sw->getCondition();
           if (SwCond && SwCond->getType()->isIntegerTy() && !isa<ConstantInt>(SwCond)){
+            IRBuilder<> IRBSW(Sw);
             Value *SwCondExt = IRBSW.CreateZExt(SwCond, Int64Ty);
             // EdgeVal = IRBSW.CreateXor(PrevBBValCasted, SwCondExt);
             // IRBSW.CreateStore(EdgeVal, EdgeValMapPtrIdx)
@@ -259,12 +260,35 @@ bool AFLCoverage::runOnModule(Module &M) {
                   Value *opArg[2], *opdCasted[2];
                   opArg[0] = cinst->getOperand(0);
                   opArg[1] = cinst->getOperand(1);
-                  opdCasted[0] = IRBRI.CreateBitCast(opArg[0], Int64Ty);
+                  Type *OpType = opArg[0]->getType();
+                  if (!((OpType->isIntegerTy() && OpType->getIntegerBitWidth() <= 64) ||
+                          OpType->isFloatTy() || OpType->isDoubleTy())){
+                    continue;
+                  } else if (OpType->isFloatTy()){
+                    /* bitcast can only cast between the types with the same length of bits */
+                    Value *tempOp0 = IRBRI.CreateBitCast(opArg[0], Int32Ty);
+                    Value *tempOp1 = IRBRI.CreateBitCast(opArg[1], Int32Ty);
+                    opdCasted[0] = IRBRI.CreateZExt(tempOp0, Int64Ty);
+                    opdCasted[1] = IRBRI.CreateZExt(tempOp1, Int64Ty);
+                  } else if (OpType->isDoubleTy()){
+                    opdCasted[0] = IRBRI.CreateBitCast(opArg[0], Int64Ty);
+                    opdCasted[1] = IRBRI.CreateBitCast(opArg[1], Int64Ty);
+                  } else if (OpType->isIntegerTy() && OpType->getIntegerBitWidth() < 64){
+                    opdCasted[0] = IRBRI.CreateZExt(opArg[0], Int64Ty);
+                    opdCasted[1] = IRBRI.CreateZExt(opArg[1], Int64Ty);
+                  } else{
+                    opdCasted[0] = opArg[0];
+                    opdCasted[1] = opArg[1];
+                  }
+
+
+                  //opdCasted[0] = IRBRI.CreateBitCast(opArg[0], Int64Ty);
                   /* shift right by 1. 
                   The ‘lshr’ instruction (logical shift right) returns the first operand 
                     shifted to the right a specified number of bits with zero fill. */
-                  opdCasted[1] = IRB.CreateLShr(IRB.CreateBitCast(opArg[1], Int64Ty), 1);
-              
+                  opdCasted[1] = IRB.CreateLShr(opdCasted[1], 1);
+                  //opdCasted[1] = IRB.CreateBitCast(opArg[1], Int64Ty);
+
                   LoadInst *LoadCurBBVal = IRBRI.CreateLoad(AFLCurBBVal);
                   Value *LoadCurBBValCasted = IRBRI.CreateZExt(LoadCurBBVal, IRBRI.getInt64Ty());
                 
