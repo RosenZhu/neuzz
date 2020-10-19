@@ -1,3 +1,20 @@
+# Install NEUZZ for verifying
+
+Install it like AFL
+
+    cd /path/to/neuzz
+    make clean all
+    cd llvm_mode
+    make clean all
+
+Use:
+
+    CC=/path/to/neuzz/afl-clang-fast ./configure
+
+Remember to add CXX=/path/to/neuzz/afl-clang-fast++ for C++ programs.
+
+
+
 # NEUZZ: a neural-network-assisted fuzzer (S&P'19)
 See IEEE S&P(Oakland)'19 [slides](https://drive.google.com/file/d/1_A33wucTOA2nZpKVArvsXajh-2LNrCZK/view?usp=sharing) and paper [NEUZZ: Efficient Fuzzing with Neural Program Smoothing](https://arxiv.org/abs/1807.05620) for details.
 ## Prerequisite

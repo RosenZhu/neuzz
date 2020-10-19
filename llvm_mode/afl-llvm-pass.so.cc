@@ -79,22 +79,25 @@ user_inst: a user of the cmp_inst, or user of user of cmp_inst, or...
 bool isBranchRelated(Instruction *user_inst){
   // bool res = false;//, recursive_res = false;
   
-  if (user_inst->user_empty()){
-     return false;
-  }
-
-  for (auto Ur : user_inst->users()){
-    // an instruction uses user_inst
-    if (auto UrInst = dyn_cast<Instruction>(Ur)){
-      /* If the user is a BranchInst, return true */
-      if (isa<BranchInst>(UrInst)){
-        return true;
-      }
-
-      if (isBranchRelated(UrInst)) return true;
+  if (Value *vusr = dyn_cast<Value>(user_inst)){
+    if (user_inst->user_empty()){
+      return false;
     }
 
+    for (auto Ur : user_inst->users()){
+      // an instruction uses user_inst
+      if (auto UrInst = dyn_cast<Instruction>(Ur)){
+        /* If the user is a BranchInst, return true */
+        if (isa<BranchInst>(UrInst)){
+          return true;
+        }
+
+        if (isBranchRelated(UrInst)) return true;
+      }
+
+    }
   }
+
 
   return false;
 }
@@ -250,7 +253,7 @@ bool AFLCoverage::runOnModule(Module &M) {
 
             for (auto &I : BB){
               if (auto cinst = dyn_cast<CmpInst>(&I)){
-                if (isBranchRelated(&I)){
+                // if (isBranchRelated(&I)){
 
                   /* Insert Point is critical. Wrong insert point results in segfault. 
                   The insert point can't be set to be after a given instruction -- 
@@ -281,14 +284,11 @@ bool AFLCoverage::runOnModule(Module &M) {
                     opdCasted[1] = opArg[1];
                   }
 
-
-                  //opdCasted[0] = IRBRI.CreateBitCast(opArg[0], Int64Ty);
-                  /* shift right by 1. 
-                  The ‘lshr’ instruction (logical shift right) returns the first operand 
-                    shifted to the right a specified number of bits with zero fill. */
-                  opdCasted[1] = IRB.CreateLShr(opdCasted[1], 1);
-                  //opdCasted[1] = IRB.CreateBitCast(opArg[1], Int64Ty);
-
+                  // /* shift right by 1. 
+                  // The ‘lshr’ instruction (logical shift right) returns the first operand 
+                  //   shifted to the right a specified number of bits with zero fill. */
+                  // opdCasted[1] = IRB.CreateLShr(opdCasted[1], 1);
+                  
                   LoadInst *LoadCurBBVal = IRBRI.CreateLoad(AFLCurBBVal);
                   Value *LoadCurBBValCasted = IRBRI.CreateZExt(LoadCurBBVal, IRBRI.getInt64Ty());
                 
@@ -298,7 +298,7 @@ bool AFLCoverage::runOnModule(Module &M) {
                   IRBRI.CreateStore(CurBBVal, AFLCurBBVal) 
                       ->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
                   
-                }
+                // }
               }
             }
             
@@ -354,7 +354,7 @@ bool AFLCoverage::runOnModule(Module &M) {
              inst_blocks, getenv("AFL_HARDEN") ? "hardened" :
              ((getenv("AFL_USE_ASAN") || getenv("AFL_USE_MSAN")) ?
               "ASAN/MSAN" : "non-hardened"), inst_ratio);
-
+    OKF("For NEUZZ Verify.");
   }
 
   return true;
