@@ -260,7 +260,7 @@ bool AFLCoverage::runOnModule(Module &M) {
                   instead, you should set it to be before the next instruction.*/
                   Instruction *InsertPoint = cinst->getNextNode();
                   IRBuilder<> IRBRI(InsertPoint);
-                  Value *opArg[2], *opdCasted[2];
+                  Value *opArg[2], *opdCasted;
                   opArg[0] = cinst->getOperand(0);
                   opArg[1] = cinst->getOperand(1);
                   Type *OpType = opArg[0]->getType();
@@ -269,19 +269,20 @@ bool AFLCoverage::runOnModule(Module &M) {
                     continue;
                   } else if (OpType->isFloatTy()){
                     /* bitcast can only cast between the types with the same length of bits */
-                    Value *tempOp0 = IRBRI.CreateBitCast(opArg[0], Int32Ty);
-                    Value *tempOp1 = IRBRI.CreateBitCast(opArg[1], Int32Ty);
-                    opdCasted[0] = IRBRI.CreateZExt(tempOp0, Int64Ty);
-                    opdCasted[1] = IRBRI.CreateZExt(tempOp1, Int64Ty);
+                    Value *addOpArg = IRBRI.CreateFAdd(opArg[0], opArg[1]);
+                    Value *tempOp = IRBRI.CreateBitCast(addOpArg, Int32Ty);
+                    opdCasted = IRBRI.CreateZExt(tempOp, Int64Ty);
+
                   } else if (OpType->isDoubleTy()){
-                    opdCasted[0] = IRBRI.CreateBitCast(opArg[0], Int64Ty);
-                    opdCasted[1] = IRBRI.CreateBitCast(opArg[1], Int64Ty);
-                  } else if (OpType->isIntegerTy() && OpType->getIntegerBitWidth() < 64){
-                    opdCasted[0] = IRBRI.CreateZExt(opArg[0], Int64Ty);
-                    opdCasted[1] = IRBRI.CreateZExt(opArg[1], Int64Ty);
+                    Value *addOpArg = IRBRI.CreateFAdd(opArg[0], opArg[1]);
+                    opdCasted = IRBRI.CreateBitCast(addOpArg, Int64Ty);
+                    
+                  } else if (OpType->isIntegerTy() && OpType->getIntegerBitWidth() <= 64){
+                    Value *addOpArg = IRBRI.CreateAdd(opArg[0], opArg[1]);
+                    opdCasted = IRBRI.CreateZExt(addOpArg, Int64Ty);
+                    
                   } else{
-                    opdCasted[0] = opArg[0];
-                    opdCasted[1] = opArg[1];
+                    opdCasted = IRBRI.CreateAdd(opArg[0], opArg[1]);
                   }
 
                   // /* shift right by 1. 
@@ -292,8 +293,7 @@ bool AFLCoverage::runOnModule(Module &M) {
                   LoadInst *LoadCurBBVal = IRBRI.CreateLoad(AFLCurBBVal);
                   Value *LoadCurBBValCasted = IRBRI.CreateZExt(LoadCurBBVal, IRBRI.getInt64Ty());
                 
-                  Value *CurBBVal = IRBRI.CreateXor(LoadCurBBValCasted, 
-                                              IRBRI.CreateXor(opdCasted[0], opdCasted[1]));
+                  Value *CurBBVal = IRBRI.CreateXor(LoadCurBBValCasted, opdCasted);
                   
                   IRBRI.CreateStore(CurBBVal, AFLCurBBVal) 
                       ->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
